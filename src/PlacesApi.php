@@ -69,18 +69,32 @@ class PlacesApi
      * @param $location
      * @param null $radius
      * @param array $params
+     * @param bool $all
      *
      * @return \Illuminate\Support\Collection
      * @throws \SKAgarwal\GoogleApi\Exceptions\GooglePlacesApiException
      */
-    public function nearbySearch($location, $radius = null, $params = [])
+    public function nearbySearch($location, $radius = null, $params = [], $all = false)
     {
         $this->checkKey();
+
+        $results = [];
         
         $params = $this->prepareNearbySearchParams($location, $radius, $params);
         $response = $this->makeRequest(self::NEARBY_SEARCH_URL, $params);
+
+        if(!$all)
+            return $this->convertToCollection($response, 'results');
+
+        $results['results'] = $response['results'];
+
+        while(array_key_exists('next_page_token', $response)){
+            sleep(2); //Google maps Throttling
+            $response = $this->makeRequest(self::NEARBY_SEARCH_URL, ['pagetoken' => $response['next_page_token']]);
+            $results['results'] = array_merge($results['results'],$response['results']);
+        }
         
-        return $this->convertToCollection($response, 'results');
+        return $this->convertToCollection($results, 'results');
     }
     
     /**
